@@ -2,6 +2,8 @@
 # python train.py --batch 40 --cfg yolov5m.yaml --weights '' --data coco.yaml --img 640 --epochs 300
 # See tutorials for hyperparameter evolution https://github.com/ultralytics/yolov5#tutorials
 
+# bias_init: 1
+# act: leaky
 # multi_label: 0
 dense: 0
 exp: 1
