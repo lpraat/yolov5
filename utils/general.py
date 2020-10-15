@@ -508,7 +508,11 @@ def compute_loss(p, targets, model):  # predictions, targets, model
 
             # Regression
             pxy = ps[:, :2].sigmoid() * 2. - 0.5
-            pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
+            if h['exp']:
+                pwh = ps[:, 2:4].exp().clamp(max=1e3) * anchors[i]
+            else:
+                pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
+
             pbox = torch.cat((pxy, pwh), 1).to(device)  # predicted box
             iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
             lbox += (1.0 - iou).mean()  # iou loss
@@ -566,14 +570,15 @@ def build_targets(p, targets, model):
             # j = wh_iou(anchors, t[:, 4:6]) > model.hyp['iou_t']  # iou(3,n)=wh_iou(anchors(3,2), gwh(n,2))
             t = t[j]  # filter
 
-            # Offsets
-            gxy = t[:, 2:4]  # grid xy
-            gxi = gain[[2, 3]] - gxy  # inverse
-            j, k = ((gxy % 1. < g) & (gxy > 1.)).T
-            l, m = ((gxi % 1. < g) & (gxi > 1.)).T
-            j = torch.stack((torch.ones_like(j), j, k, l, m))
-            t = t.repeat((5, 1, 1))[j]
-            offsets = (torch.zeros_like(gxy)[None] + off[:, None])[j]
+            if model.hyp['dense']:
+                # Offsets
+                gxy = t[:, 2:4]  # grid xy
+                gxi = gain[[2, 3]] - gxy  # inverse
+                j, k = ((gxy % 1. < g) & (gxy > 1.)).T
+                l, m = ((gxi % 1. < g) & (gxi > 1.)).T
+                j = torch.stack((torch.ones_like(j), j, k, l, m))
+                t = t.repeat((5, 1, 1))[j]
+                offsets = (torch.zeros_like(gxy)[None] + off[:, None])[j]
         else:
             t = targets[0]
             offsets = 0
@@ -582,7 +587,10 @@ def build_targets(p, targets, model):
         b, c = t[:, :2].long().T  # image, class
         gxy = t[:, 2:4]  # grid xy
         gwh = t[:, 4:6]  # grid wh
-        gij = (gxy - offsets).long()
+        if model.hyp['dense']:
+            gij = (gxy - offsets).long()
+        else:
+            gij = gxy.long()
         gi, gj = gij.T  # grid xy indices
 
         # Append
@@ -610,7 +618,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     max_det = 300  # maximum number of detections per image
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections
-    multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
+    multi_label = False  # multiple labels per box (adds 0.5ms/img)
 
     t = time.time()
     output = [None] * prediction.shape[0]
