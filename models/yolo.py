@@ -47,9 +47,17 @@ class Detect(nn.Module):
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
 
-                y = x[i].sigmoid()
+                y = x[i]
+
+                y[..., 0:2] = y[..., 0:2].sigmoid()
+                y[..., 4:] = y[..., 4:].sigmoid()
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-                y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+
+                # if self.hyp['exp']:
+                y[..., 2:4] = y[..., 2:4].exp().clamp(max=1e3) * self.anchor_grid[i]  # wh
+                # else:
+                    # y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+
                 z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)

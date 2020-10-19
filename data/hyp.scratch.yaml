@@ -5,6 +5,7 @@
 # bias_init: 1
 # act: leaky
 # multi_label: 0
+# exp_test: 1
 dense: 0
 exp: 1
 
