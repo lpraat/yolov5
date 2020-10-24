@@ -80,7 +80,7 @@ def test(data,
         _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
         path = data['test'] if opt.task == 'test' else data['val']  # path to val/test images
         dataloader = create_dataloader(path, imgsz, batch_size, model.stride.max(), opt,
-                                       hyp=None, augment=False, cache=False, pad=0.5, rect=True)[0]
+                                       hyp=None, augment=False, cache=False, pad=0.5, rect=False)[0]
 
     seen = 0
     names = model.names if hasattr(model, 'names') else model.module.names
@@ -160,6 +160,24 @@ def test(data,
 
                 # target boxes
                 tbox = xywh2xyxy(labels[:, 1:5]) * whwh
+
+                # Populate detections
+                pred[..., :4] = torch.round(pred[..., :4])
+                os.makedirs("./detections", exist_ok=True)
+                with open(os.path.join("./detections", str(batch_i)+".txt"), mode='w') as f:
+                    for img_bbox in pred[..., :6]:
+                        id = int(str(Path(paths[si]).stem))
+
+                        x1,x2,x3,x4,conf,cls = img_bbox.tolist()
+                        f.write(f"{int(cls)} {conf:.5f} {int(x1)} {int(x2)} {int(x3)} {int(x4)}\n")
+
+                # Populate ground truths
+                os.makedirs("./groundtruths", exist_ok=True)
+                with open(os.path.join("./groundtruths", str(batch_i)+".txt"), mode='w') as f:
+                    for i, el in enumerate(tbox.tolist()):
+                        x1,x2,x3,x4 = el
+                        cls = tcls_tensor[i]
+                        f.write(f"{int(cls)} {int(x1)} {int(x2)} {int(x3)} {int(x4)}\n")
 
                 # Per target class
                 for cls in torch.unique(tcls_tensor):

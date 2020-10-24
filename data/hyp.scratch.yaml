@@ -6,6 +6,9 @@
 # act: leaky
 # multi_label: 0
 # exp_test: 1
+# test_rect: 0
+# round_bboxes: 1
+
 dense: 0
 exp: 1
 
